@@ -3,8 +3,16 @@
   "resources": {
     "cache": {
       "type": "container.v0",
-      "connectionString": "{cache.bindings.tcp.host}:{cache.bindings.tcp.port}",
-      "image": "docker.io/library/redis:7.4",
+      "connectionString": "{cache.bindings.tcp.host}:{cache.bindings.tcp.port},password={cache-password.value}",
+      "image": "docker.io/library/redis:8.2",
+      "entrypoint": "/bin/sh",
+      "args": [
+        "-c",
+        "redis-server --requirepass $REDIS_PASSWORD"
+      ],
+      "env": {
+        "REDIS_PASSWORD": "{cache-password.value}"
+      },
       "bindings": {
         "tcp": {
           "scheme": "tcp",
@@ -14,6 +22,15 @@
         }
       }
     },
+    "sql": {
+      "type": "azure.bicep.v0",
+      "connectionString": "Server=tcp:{sql.outputs.sqlServerFqdn},1433;Encrypt=True;Authentication=\u0022Active Directory Default\u0022",
+      "path": "sql.module.bicep"
+    },
+    "sqldb": {
+      "type": "value.v0",
+      "connectionString": "{sql.connectionString};Database=sqldb"
+    },
     "apiservice": {
       "type": "project.v0",
       "path": "../AspireApp.ApiService/AspireApp.ApiService.csproj",
@@ -22,7 +39,8 @@
         "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
         "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
         "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
-        "HTTP_PORTS": "{apiservice.bindings.http.targetPort}"
+        "HTTP_PORTS": "{apiservice.bindings.http.targetPort}",
+        "ConnectionStrings__sqldb": "{sqldb.connectionString}"
       },
       "bindings": {
         "http": {
@@ -62,6 +80,33 @@
           "protocol": "tcp",
           "transport": "http",
           "external": true
+        }
+      }
+    },
+    "sql-roles": {
+      "type": "azure.bicep.v0",
+      "path": "sql-roles.module.bicep",
+      "params": {
+        "sql_outputs_name": "{sql.outputs.name}",
+        "sql_outputs_sqlserveradminname": "{sql.outputs.sqlServerAdminName}",
+        "principalId": "",
+        "principalName": "",
+        "principalType": ""
+      }
+    },
+    "cache-password": {
+      "type": "parameter.v0",
+      "value": "{cache-password.inputs.value}",
+      "inputs": {
+        "value": {
+          "type": "string",
+          "secret": true,
+          "default": {
+            "generate": {
+              "minLength": 22,
+              "special": false
+            }
+          }
         }
       }
     }

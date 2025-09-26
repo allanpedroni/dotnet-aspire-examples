@@ -1,13 +1,47 @@
+using AspireApp.AppHost;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
-var cache = builder.AddRedis("cache");
+var cache = builder.AddRedis("cache")
+    .WithClearCacheCommand();
 
-var apiService = builder.AddProject<Projects.AspireApp_ApiService>("apiservice");
+if (builder.ExecutionContext.IsRunMode)
+{
+    var sql = builder.AddSqlServer("sql")
+        .WithLifetime(ContainerLifetime.Persistent);
 
-builder.AddProject<Projects.AspireApp_Web>("webfrontend")
-    .WithExternalHttpEndpoints()
-    .WithReference(cache)
-    .WithReference(apiService)
-    .WithReplicas(3);
+    var sqldb = sql.AddDatabase("sqldb");
+
+    var apiService = builder
+        .AddProject<Projects.AspireApp_ApiService>(
+            "apiservice")
+        .WaitFor(sqldb)
+        .WithReference(sqldb);
+
+    builder.AddProject<Projects.AspireApp_Web>("webfrontend")
+        .WithExternalHttpEndpoints()
+        .WithReference(cache)
+        .WithReference(apiService)
+        .WaitFor(apiService)
+        .WithReplicas(3);
+}
+else
+{
+    var sql = builder.AddAzureSqlServer("sql");
+    var sqldb = sql.AddDatabase("sqldb");
+
+    var apiService = builder
+        .AddProject<Projects.AspireApp_ApiService>(
+            "apiservice")
+        .WaitFor(sqldb)
+        .WithReference(sqldb);
+
+    builder.AddProject<Projects.AspireApp_Web>("webfrontend")
+        .WithExternalHttpEndpoints()
+        .WithReference(cache)
+        .WithReference(apiService)
+        .WaitFor(apiService)
+        .WithReplicas(3);
+}
 
 builder.Build().Run();

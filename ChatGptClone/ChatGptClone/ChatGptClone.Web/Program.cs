@@ -28,8 +28,6 @@ if (!csBuilder.TryGetValue("Endpoint", out var ollamaEndpoint))
 
 builder.Services.AddSingleton(sp =>
 {
-    var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient("ollama");
-
     IKernelBuilder kb = Kernel.CreateBuilder();
 #pragma warning disable SKEXP0070
     kb.AddOllamaChatCompletion(
